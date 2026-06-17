@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>InstaMVP — Monitoramento de Concorrência</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #181b22;
+    --border: #2a2e38;
+    --text: #e6e8eb;
+    --muted: #9aa0ac;
+    --accent: #6c5ce7;
+    --green: #2ecc71;
+    --red: #e74c3c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .panel h2 {
+    margin: 0 0 14px;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .panel h2 .actions { display: flex; gap: 8px; }
+  select, input[type=text], button {
+    background: #20242e;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  button {
+    cursor: pointer;
+    background: var(--accent);
+    border: none;
+    font-weight: 600;
+  }
+  button.secondary { background: #20242e; border: 1px solid var(--border); }
+  button.danger { background: var(--red); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  tr:hover { background: #1e222b; }
+  .pill { padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pill.up { background: rgba(46,204,113,.15); color: var(--green); }
+  .pill.down { background: rgba(231,76,60,.15); color: var(--red); }
+  .pill.flat { background: #2a2e38; color: var(--muted); }
+  .muted { color: var(--muted); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .toggle {
+    width: 38px; height: 20px; border-radius: 999px; background: #2a2e38;
+    position: relative; cursor: pointer; border: none; flex-shrink: 0;
+  }
+  .toggle.on { background: var(--green); }
+  .toggle::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+    border-radius: 50%; background: #fff; transition: left .15s;
+  }
+  .toggle.on::after { left: 20px; }
+  .empty { color: var(--muted); font-size: 13px; padding: 12px 0; }
+  .posts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 10px; margin-top: 10px; }
+  .post-card { background: #20242e; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; font-size: 12px; }
+  .post-card .post-body { padding: 10px; }
+  .post-card .thumb { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; background: #11141a; }
+  .post-card .thumb.missing { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 11px; }
+  .post-card .caption { color: var(--muted); margin: 6px 0; max-height: 48px; overflow: hidden; }
+  .post-card .stats { display: flex; gap: 10px; color: var(--text); }
+  .profile-link { color: var(--accent); cursor: pointer; text-decoration: underline; }
+  .badge-rank { display: inline-block; width: 22px; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>InstaMVP</h1>
+    <div class="sub">Monitoramento de concorrência no Instagram</div>
+  </div>
+  <div class="row">
+    <span class="sub" id="statusText">carregando...</span>
+    <button class="secondary" onclick="refreshAll()">⟳ Atualizar</button>
+  </div>
+</header>
+
+<main>
+
+  <section class="panel">
+    <h2>
+      Leaderboard
+      <span class="actions">
+        <select id="leaderboardDays" onchange="loadLeaderboard()">
+          <option value="1">1 dia</option>
+          <option value="7" selected>7 dias</option>
+          <option value="30">30 dias</option>
+        </select>
+      </span>
+    </h2>
+    <div id="leaderboardContainer"><div class="empty">carregando...</div></div>
+  </section>
+
+  <section class="panel">
+    <h2>
+      Watchlist (busca contínua)
+      <span class="actions">
+        <input type="text" id="newUsername" placeholder="username (sem @)" />
+        <button onclick="addToWatchlist()">+ Adicionar</button>
+      </span>
+    </h2>
+    <div id="watchlistContainer"><div class="empty">carregando...</div></div>
+  </section>
+
+  <section class="panel">
+    <h2>
+      🔥 Melhores posts
+      <span class="actions">
+        <select id="topPostsDays" onchange="loadTopPosts()">
+          <option value="1" selected>hoje</option>
+          <option value="7">7 dias</option>
+          <option value="30">30 dias</option>
+        </select>
+      </span>
+    </h2>
+    <div id="topPostsContainer"><div class="empty">carregando...</div></div>
+  </section>
+
+  <section class="panel">
+    <h2>
+      # Hashtags em alta
+      <span class="actions">
+        <select id="hashtagsDays" onchange="loadHashtags()">
+          <option value="7" selected>7 dias</option>
+          <option value="30">30 dias</option>
+        </select>
+      </span>
+    </h2>
+    <div id="hashtagsContainer"><div class="empty">carregando...</div></div>
+  </section>
+
+  <section class="panel">
+    <h2>Perfis</h2>
+    <div id="profilesContainer"><div class="empty">carregando...</div></div>
+  </section>
+
+  <section class="panel" id="postsPanel" style="display:none;">
+    <h2>
+      Posts de <span id="postsUsername"></span>
+      <span class="actions"><button class="secondary" onclick="closePosts()">Fechar</button></span>
+    </h2>
+    <div id="postsContainer"></div>
+  </section>
+
+</main>
+
+<script>
+const API = '/api';
+
+async function getJSON(url, options) {
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+function fmtNumber(n) {
+  if (n === null || n === undefined) return '—';
+  return new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+}
+
+function fmtPercent(n) {
+  if (n === null || n === undefined) return '—';
+  const sign = n > 0 ? '+' : '';
+  return `${sign}${n.toFixed(2)}%`;
+}
+
+function fmtRate(n) {
+  if (n === null || n === undefined) return '—';
+  return (n * 100).toFixed(2) + '%';
+}
+
+function fmtDate(s) {
+  if (!s) return '—';
+  return new Date(s).toLocaleString('pt-BR');
+}
+
+function statusBadge(target) {
+  const map = {
+    PENDING: { cls: 'flat', label: 'pendente' },
+    OK: { cls: 'up', label: 'ok' },
+    PRIVATE: { cls: 'flat', label: 'privado' },
+    NOT_FOUND: { cls: 'down', label: 'não encontrado' },
+    ERROR: { cls: 'down', label: 'erro' },
+  };
+  const info = map[target.lastStatus] || map.PENDING;
+  return `<span class="pill ${info.cls}" title="${target.lastMessage ?? ''}">${info.label}</span>`;
+}
+
+function postThumb(post) {
+  if (post.imageUrl) {
+    return `<img class="thumb" src="${post.imageUrl}" loading="lazy" referrerpolicy="no-referrer"
+      onerror="this.outerHTML='<div class=&quot;thumb missing&quot;>sem imagem</div>'" />`;
+  }
+  return `<div class="thumb missing">sem imagem</div>`;
+}
+
+async function loadLeaderboard() {
+  const days = document.getElementById('leaderboardDays').value;
+  const container = document.getElementById('leaderboardContainer');
+  try {
+    const data = await getJSON(`${API}/leaderboard?days=${days}`);
+    if (!data.length) {
+      container.innerHTML = '<div class="empty">Nenhum perfil ainda. Adicione um na watchlist abaixo.</div>';
+      return;
+    }
+    const rows = data.map(g => {
+      const pillClass = g.insufficientData ? 'flat' : (g.followersGrowthPercent > 0 ? 'up' : g.followersGrowthPercent < 0 ? 'down' : 'flat');
+      const pillText = g.insufficientData ? 'sem histórico' : fmtPercent(g.followersGrowthPercent);
+      return `<tr>
+        <td><span class="badge-rank">${g.rank ?? '-'}</span></td>
+        <td><span class="profile-link" onclick="openPostsByUsername('${g.username}')">@${g.username}</span></td>
+        <td>${fmtNumber(g.followersEnd)}</td>
+        <td><span class="pill ${pillClass}">${pillText}</span></td>
+        <td>${g.followersDelta !== null && g.followersDelta !== undefined ? (g.followersDelta > 0 ? '+' : '') + fmtNumber(g.followersDelta) : '—'}</td>
+        <td>${fmtRate(g.avgEngagementRate)}</td>
+        <td class="muted">${g.snapshotsInPeriod}</td>
+      </tr>`;
+    }).join('');
+    container.innerHTML = `<table>
+      <thead><tr>
+        <th>#</th><th>Perfil</th><th>Seguidores</th><th>Crescimento</th><th>Δ Seguidores</th><th>Engaj. médio</th><th>Snapshots</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } catch (e) {
+    container.innerHTML = `<div class="empty">Erro ao carregar leaderboard: ${e.message}</div>`;
+  }
+}
+
+async function loadWatchlist() {
+  const container = document.getElementById('watchlistContainer');
+  try {
+    const data = await getJSON(`${API}/scraper/watchlist`);
+    if (!data.length) {
+      container.innerHTML = '<div class="empty">Nenhum perfil na watchlist.</div>';
+      return;
+    }
+    const rows = data.map(t => `<tr>
+      <td><button class="toggle ${t.active ? 'on' : ''}" onclick="toggleWatch('${t.username}')"></button></td>
+      <td>@${t.username}</td>
+      <td class="muted">${t.active ? 'busca ativa' : 'pausado'}</td>
+      <td>${statusBadge(t)}</td>
+      <td class="muted" title="${t.lastMessage ?? ''}">${fmtDate(t.lastCheckedAt)}</td>
+      <td><button class="danger" onclick="removeWatch('${t.username}')">remover</button></td>
+    </tr>`).join('');
+    container.innerHTML = `<table>
+      <thead><tr><th></th><th>Perfil</th><th>Toggle</th><th>Status</th><th>Última verificação</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } catch (e) {
+    container.innerHTML = `<div class="empty">Erro ao carregar watchlist: ${e.message}</div>`;
+  }
+}
+
+async function addToWatchlist() {
+  const input = document.getElementById('newUsername');
+  const username = input.value.trim();
+  if (!username) return;
+  try {
+    await getJSON(`${API}/scraper/watchlist`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username })
+    });
+    input.value = '';
+    await loadWatchlist();
+  } catch (e) {
+    alert('Erro ao adicionar: ' + e.message);
+  }
+}
+
+async function toggleWatch(username) {
+  try {
+    await getJSON(`${API}/scraper/watchlist/${encodeURIComponent(username)}/toggle`, { method: 'PATCH' });
+    await loadWatchlist();
+  } catch (e) {
+    alert('Erro ao alternar: ' + e.message);
+  }
+}
+
+async function removeWatch(username) {
+  if (!confirm(`Remover @${username} da watchlist?`)) return;
+  try {
+    await fetch(`${API}/scraper/watchlist/${encodeURIComponent(username)}`, { method: 'DELETE' });
+    await loadWatchlist();
+  } catch (e) {
+    alert('Erro ao remover: ' + e.message);
+  }
+}
+
+async function loadTopPosts() {
+  const days = document.getElementById('topPostsDays').value;
+  const container = document.getElementById('topPostsContainer');
+  try {
+    const posts = await getJSON(`${API}/insights/top-posts?days=${days}&limit=12`);
+    if (!posts.length) {
+      container.innerHTML = '<div class="empty">Nenhum post no período. Aguarde o worker sincronizar mais perfis.</div>';
+      return;
+    }
+    container.innerHTML = `<div class="posts-grid">${posts.map((post, i) => `
+      <div class="post-card">
+        ${postThumb(post)}
+        <div class="post-body">
+        <div class="row" style="justify-content:space-between;">
+          <span class="profile-link" onclick="openPosts(${post.profileId}, '${post.username}')">@${post.username}</span>
+          <span class="muted">#${i + 1}</span>
+        </div>
+        <div class="muted">${fmtDate(post.postDate)}</div>
+        <div class="caption">${post.caption ? post.caption.slice(0, 120) : '(sem legenda)'}</div>
+        <div class="stats">
+          <span>❤️ ${fmtNumber(post.likes)}</span>
+          <span>💬 ${fmtNumber(post.comments)}</span>
+          <span class="pill up">${fmtRate(post.engagementRate)}</span>
+        </div>
+        </div>
+      </div>
+    `).join('')}</div>`;
+  } catch (e) {
+    container.innerHTML = `<div class="empty">Erro ao carregar melhores posts: ${e.message}</div>`;
+  }
+}
+
+async function loadHashtags() {
+  const days = document.getElementById('hashtagsDays').value;
+  const container = document.getElementById('hashtagsContainer');
+  try {
+    const tags = await getJSON(`${API}/insights/hashtags?days=${days}&limit=20`);
+    if (!tags.length) {
+      container.innerHTML = '<div class="empty">Nenhuma hashtag encontrada nas legendas do período.</div>';
+      return;
+    }
+    container.innerHTML = `<div class="row" style="flex-wrap:wrap; gap:8px;">${tags.map(t => `
+      <span class="pill flat" title="${t.usernames.map(u => '@' + u).join(', ')}">
+        ${t.tag} · ${t.postCount} post(s) · ${t.profileCount} perfil(is)
+      </span>
+    `).join('')}</div>`;
+  } catch (e) {
+    container.innerHTML = `<div class="empty">Erro ao carregar hashtags: ${e.message}</div>`;
+  }
+}
+
+let profilesCache = [];
+
+async function loadProfiles() {
+  const container = document.getElementById('profilesContainer');
+  try {
+    profilesCache = await getJSON(`${API}/profiles`);
+    if (!profilesCache.length) {
+      container.innerHTML = '<div class="empty">Nenhum perfil sincronizado ainda.</div>';
+      document.getElementById('statusText').textContent = '0 perfis monitorados';
+      return;
+    }
+    const rows = profilesCache.map(p => `<tr>
+      <td><span class="profile-link" onclick="openPosts(${p.id}, '${p.username}')">@${p.username}</span></td>
+      <td>${p.fullName ?? '—'}</td>
+      <td>${fmtNumber(p.followers)}</td>
+      <td>${fmtNumber(p.following)}</td>
+      <td>${fmtNumber(p.postsCount)}</td>
+    </tr>`).join('');
+    container.innerHTML = `<table>
+      <thead><tr><th>Perfil</th><th>Nome</th><th>Seguidores</th><th>Seguindo</th><th>Posts</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+    document.getElementById('statusText').textContent = `${profilesCache.length} perfil(is) monitorados`;
+  } catch (e) {
+    container.innerHTML = `<div class="empty">Erro ao carregar perfis: ${e.message}</div>`;
+  }
+}
+
+async function openPostsByUsername(username) {
+  const profile = profilesCache.find(p => p.username === username);
+  if (!profile) { alert('Perfil ainda sem dados sincronizados.'); return; }
+  openPosts(profile.id, username);
+}
+
+async function openPosts(profileId, username) {
+  const panel = document.getElementById('postsPanel');
+  const container = document.getElementById('postsContainer');
+  document.getElementById('postsUsername').textContent = '@' + username;
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth' });
+  container.innerHTML = '<div class="empty">carregando...</div>';
+  try {
+    const posts = await getJSON(`${API}/profiles/${profileId}/posts`);
+    if (!posts.length) {
+      container.innerHTML = '<div class="empty">Nenhum post sincronizado ainda para este perfil.</div>';
+      return;
+    }
+    container.innerHTML = `<div class="posts-grid">${posts.map(post => `
+      <div class="post-card">
+        ${postThumb(post)}
+        <div class="post-body">
+        <div class="muted">${fmtDate(post.postDate)}</div>
+        <div class="caption">${post.caption ? post.caption.slice(0, 120) : '(sem legenda)'}</div>
+        <div class="stats">
+          <span>❤️ ${fmtNumber(post.likes)}</span>
+          <span>💬 ${fmtNumber(post.comments)}</span>
+          <span class="muted">${post.engagementRate !== null && post.engagementRate !== undefined ? fmtRate(post.engagementRate) : ''}</span>
+        </div>
+        </div>
+      </div>
+    `).join('')}</div>`;
+  } catch (e) {
+    container.innerHTML = `<div class="empty">Erro ao carregar posts: ${e.message}</div>`;
+  }
+}
+
+function closePosts() {
+  document.getElementById('postsPanel').style.display = 'none';
+}
+
+async function refreshAll() {
+  document.getElementById('statusText').textContent = 'atualizando...';
+  await Promise.all([loadLeaderboard(), loadWatchlist(), loadProfiles(), loadTopPosts(), loadHashtags()]);
+}
+
+refreshAll();
+setInterval(refreshAll, 30000); // auto-refresh a cada 30s, já que o worker roda em background
+</script>
+
+</body>
+</html>

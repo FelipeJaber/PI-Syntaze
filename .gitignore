@@ -1,0 +1,29 @@
+# ===== Backend (Java / Maven) =====
+backend/target/
+backend/data/
+backend/browser-data/
+backend/*.log
+backend/cp.txt
+*.class
+
+# ===== Flutter =====
+flutter_app/build/
+flutter_app/.dart_tool/
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
+flutter_app/.packages
+flutter_app/.pub-cache/
+flutter_app/.pub/
+flutter_app/*.iml
+flutter_app/.idea/
+
+# ===== IDE / OS =====
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ===== Node (scripts auxiliares, se algum dia voltar a existir) =====
+node_modules/
+package-lock.json

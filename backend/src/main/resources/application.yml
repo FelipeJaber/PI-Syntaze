@@ -1,0 +1,37 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: instamvp-backend
+
+  datasource:
+    url: jdbc:h2:file:./data/instamvp;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+logging:
+  level:
+    com.instamvp: INFO
+
+scraper:
+  default-usernames: nike,adidas,puma # seed inicial da watchlist na primeira subida
+  worker:
+    enabled: true
+    interval-ms: 300000 # 5 minutos entre ciclos de verificação da watchlist
+    delay-between-profiles-min-ms: 8000  # cadência mínima entre um perfil e outro (anti-bot)
+    delay-between-profiles-max-ms: 20000 # cadência máxima (o valor real é aleatório nesse intervalo)

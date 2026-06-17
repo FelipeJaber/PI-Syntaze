@@ -15,20 +15,68 @@ class ApiService {
   // especial 10.0.2.2 (ele não enxerga "localhost" do host).
   static const String baseUrl = kIsWeb ? 'http://localhost:8080/api' : 'http://10.0.2.2:8080/api';
 
-  // Credenciais da autenticação básica (HTTP Basic) do backend. Mesma demo
-  // de application.yml (security.demo.username/password) — troque os dois
-  // lados juntos se mudar a senha.
-  static const String _username = 'admin';
-  static const String _password = 'admin123';
+  // Credenciais do usuário logado (definidas pelo AuthProvider após
+  // login/registro bem-sucedido). O backend usa HTTP Basic — não existe
+  // token de sessão, então guardamos usuário/senha em memória e os
+  // reenviamos em toda chamada autenticada.
+  static String? _username;
+  static String? _password;
 
-  Map<String, String> get _authHeaders => {
-        'Authorization': 'Basic ${base64Encode(utf8.encode('$_username:$_password'))}',
-      };
+  static void setCredentials(String username, String password) {
+    _username = username;
+    _password = password;
+  }
+
+  static void clearCredentials() {
+    _username = null;
+    _password = null;
+  }
+
+  static bool get hasCredentials => _username != null && _password != null;
+
+  Map<String, String> get _authHeaders {
+    if (_username == null || _password == null) {
+      throw StateError('Nenhum usuário logado.');
+    }
+    return {
+      'Authorization': 'Basic ${base64Encode(utf8.encode('$_username:$_password'))}',
+    };
+  }
 
   Map<String, String> get _jsonAuthHeaders => {
         ..._authHeaders,
         'Content-Type': 'application/json',
       };
+
+  /// Cria uma nova conta. Não loga automaticamente — chame [login] em seguida.
+  Future<void> register(String username, String password) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/register'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'username': username, 'password': password}),
+    );
+    if (response.statusCode != 201) {
+      final body = jsonDecode(response.body);
+      throw Exception(body['error'] ?? 'Erro ao cadastrar (HTTP ${response.statusCode})');
+    }
+  }
+
+  /// Valida usuário/senha contra o backend (GET /api/auth/me com HTTP Basic).
+  /// Se as credenciais forem válidas, fica salvas para as próximas chamadas.
+  Future<String> login(String username, String password) async {
+    final auth = 'Basic ${base64Encode(utf8.encode('$username:$password'))}';
+    final response = await http.get(
+      Uri.parse('$baseUrl/auth/me'),
+      headers: {'Authorization': auth},
+    );
+    if (response.statusCode == 401) {
+      throw Exception('Usuário ou senha inválidos.');
+    }
+    _checkOk(response);
+    setCredentials(username, password);
+    final body = jsonDecode(response.body);
+    return body['username'] as String;
+  }
 
   Future<List<Profile>> getProfiles() async {
     final response = await http.get(Uri.parse('$baseUrl/profiles'), headers: _authHeaders);

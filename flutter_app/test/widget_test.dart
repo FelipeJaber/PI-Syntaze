@@ -1,22 +1,19 @@
-// Smoke test: garante que o app sobe sem travar e mostra a navegação
-// principal (bottom navigation com as 4 abas), mesmo sem backend disponível
-// durante o teste (as chamadas de API falham silenciosamente e ficam em
-// estado de erro/loading, o que já é o comportamento esperado da UI).
+// Smoke test: garante que o app sobe sem travar e mostra a tela de login
+// (já que ninguém está autenticado ao abrir o app pela primeira vez).
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:instamvp_app/main.dart';
 
 void main() {
-  testWidgets('App sobe e mostra a navegação principal', (WidgetTester tester) async {
+  testWidgets('App sobe e mostra a tela de login', (WidgetTester tester) async {
     await tester.pumpWidget(const InstaMvpApp());
     await tester.pump();
 
-    expect(find.byType(NavigationBar), findsOneWidget);
-    expect(find.text('Perfis'), findsWidgets);
-    expect(find.text('Ranking'), findsOneWidget);
-    expect(find.text('Insights'), findsOneWidget);
-    expect(find.text('Watchlist'), findsOneWidget);
+    expect(find.text('InstaMVP'), findsOneWidget);
+    expect(find.text('Usuário'), findsOneWidget);
+    expect(find.text('Senha'), findsOneWidget);
+    expect(find.text('Entrar'), findsOneWidget);
+    expect(find.text('Criar uma conta'), findsOneWidget);
   });
 }

@@ -9,28 +9,50 @@ instamvp/
   GUIA_EXECUCAO.md
 ```
 
-## -1. Autenticação (HTTP Basic)
+## -1. Autenticação (registro + login, HTTP Basic)
 
-Toda a API (`/api/**`) e o dashboard web exigem autenticação básica (HTTP
-Basic Auth). Credenciais padrão (configuráveis em `application.yml`, seção
-`security.demo`, ou no Flutter em `lib/services/api_service.dart`):
+Toda a API (`/api/**`, exceto `/api/auth/register`) e o dashboard web exigem
+autenticação básica (HTTP Basic Auth), validada contra usuários reais
+persistidos no banco (tabela `app_users`, senha com hash BCrypt) — não é mais
+um único usuário fixo no código.
 
+**Usuário padrão** (criado automaticamente no primeiro boot, configurável em
+`application.yml` → `security.demo.*`):
 ```
 usuário: admin
 senha:   admin123
 ```
 
+**Cadastrar um novo usuário:**
+```bash
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username": "felipe", "password": "minhasenha"}'
+```
+
+**Validar login** (HTTP Basic + GET /api/auth/me — retorna 200 com o
+username se as credenciais forem válidas, 401 se não):
+```bash
+curl -u felipe:minhasenha http://localhost:8080/api/auth/me
+```
+
 No navegador, ao acessar `http://localhost:8080/`, um popup nativo de login
 aparece automaticamente — depois disso, todas as chamadas da própria página
-(incluindo as do dashboard) reaproveitam a mesma credencial sem precisar
-logar de novo. No `curl`, use `-u admin:admin123`. No Flutter, o
-`ApiService` já envia o header `Authorization: Basic ...` em toda chamada
-automaticamente.
+(incluindo as do dashboard) reaproveitam a mesma credencial. No `curl`, use
+`-u usuario:senha`.
 
-⚠️ É uma autenticação propositalmente simples (1 usuário fixo, sem
-cadastro/roles) — adequada ao escopo do projeto acadêmico, não para
-produção real com dados sensíveis. O H2 Console (`/h2-console`) fica
-liberado sem autenticação, por ser uma ferramenta só de desenvolvimento local.
+**No Flutter**, o app agora tem telas de Login e Registro de verdade
+(`lib/screens/login_screen.dart` e `register_screen.dart`) — ao abrir o app,
+`AuthGate` (em `main.dart`) mostra a tela de login até o usuário autenticar;
+depois disso, libera a navegação principal (`HomeShell`), que tem um botão
+de logout no topo. As credenciais ficam em memória no `ApiService`
+(`setCredentials`/`clearCredentials`) e são reenviadas em toda chamada — não
+há token de sessão persistido (fechar o app desloga).
+
+⚠️ Continua sendo uma autenticação propositalmente simples (sem roles,
+recuperação de senha, ou token persistido) — adequada ao escopo do projeto
+acadêmico, não para produção real. O H2 Console (`/h2-console`) fica
+liberado sem autenticação, por ser ferramenta só de desenvolvimento local.
 
 ## 0. Dashboard web (servido pelo próprio backend)
 

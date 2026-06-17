@@ -96,9 +96,18 @@ a cada ciclo (padrão 5 min, configurável em `application.yml` via
 
 **Perfis padrão**: na primeira subida da aplicação, o `DefaultWatchlistSeeder`
 popula a watchlist automaticamente com a lista em `application.yml`
-(`scraper.default-usernames: nike,adidas,puma`) — assim o worker já começa
-buscando algo sem precisar de nenhuma chamada manual. Edite essa propriedade
-para mudar os perfis iniciais.
+(`scraper.default-usernames`) — hoje são ~44 marcas do ramo esportivo (Nike,
+Adidas, Puma, Under Armour, Reebok, New Balance, Asics, Lululemon, Gymshark,
+The North Face, Patagonia, Decathlon, entre outras), assim o worker já começa
+buscando bastante coisa sem precisar de nenhuma chamada manual. Perfis que não
+existirem ou estiverem com username incorreto simplesmente ficam marcados
+`NOT_FOUND` na watchlist (ver seção 1.1.1), sem quebrar o worker. Edite essa
+propriedade para mudar os perfis iniciais.
+
+⚠️ Com ~44 perfis e a cadência anti-bot de 8–20s entre cada um (seção 1.1),
+um ciclo completo do worker leva uns 8–12 minutos. Isso é esperado — reduza
+a lista ou o `delay-between-profiles-*-ms` se quiser ciclos mais rápidos
+para teste/demo.
 
 **Adicionar um perfil à watchlist** (só o username):
 

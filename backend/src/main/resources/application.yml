@@ -29,7 +29,9 @@ logging:
     com.instamvp: INFO
 
 scraper:
-  default-usernames: nike,adidas,puma # seed inicial da watchlist na primeira subida
+  # Seed inicial da watchlist na primeira subida (só roda 1x; perfis que não
+  # existirem ou estiverem privados ficam marcados como tal, sem quebrar o worker).
+  default-usernames: nike,adidas,puma,underarmour,reebok,newbalance,asics,fila,vans,converse,lululemon,gymshark,decathlon,umbro,kappa,mizunousa,brooksrunning,hokaoneone,onrunning,salomon,columbia1938,thenorthface,patagonia,wilson,spalding,diadora,lacoste,kswiss,saucony,skechers,nikefootball,nikerunning,nikebasketball,adidasoriginals,adidasfootball,championusa,speedo,oakley,specialized,trekbikes,garmin,peloton,crossfit,gatorade,castelli_cycling
   worker:
     enabled: true
     interval-ms: 300000 # 5 minutos entre ciclos de verificação da watchlist

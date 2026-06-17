@@ -1,4 +1,4 @@
-# InstaMVP — Guia de Execução Local
+# Syntaze — Guia de Execução Local
 
 ## Estrutura
 

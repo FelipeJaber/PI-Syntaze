@@ -66,7 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     const Icon(Icons.insights, size: 56, color: Colors.deepPurple),
                     const SizedBox(height: 12),
-                    Text('InstaMVP', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
+                    Text('Syntaze', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
                     const SizedBox(height: 4),
                     const Text(
                       'Monitoramento de concorrência no Instagram',

@@ -28,7 +28,7 @@ class InstaMvpApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => InsightsProvider()),
       ],
       child: MaterialApp(
-        title: 'InstaMVP',
+        title: 'Syntaze',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorSchemeSeed: Colors.deepPurple,

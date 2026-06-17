@@ -1,11 +1,11 @@
 {
-    "name": "instamvp_app",
-    "short_name": "instamvp_app",
+    "name": "Syntaze",
+    "short_name": "Syntaze",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Syntaze — monitoramento de concorrência no Instagram",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

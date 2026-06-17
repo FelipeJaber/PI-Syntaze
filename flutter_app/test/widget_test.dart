@@ -10,7 +10,7 @@ void main() {
     await tester.pumpWidget(const InstaMvpApp());
     await tester.pump();
 
-    expect(find.text('InstaMVP'), findsOneWidget);
+    expect(find.text('Syntaze'), findsOneWidget);
     expect(find.text('Usuário'), findsOneWidget);
     expect(find.text('Senha'), findsOneWidget);
     expect(find.text('Entrar'), findsOneWidget);

@@ -3,7 +3,10 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/top_post.dart';
+import '../models/hashtag.dart';
 import '../providers/insights_provider.dart';
+import '../services/api_service.dart';
+import '../utils/error_utils.dart';
 
 class InsightsScreen extends StatefulWidget {
   const InsightsScreen({super.key});
@@ -29,6 +32,25 @@ class _InsightsScreenState extends State<InsightsScreen> {
   String _fmtRate(double? n) {
     if (n == null) return '—';
     return '${(n * 100).toStringAsFixed(2)}%';
+  }
+
+  void _showHashtagPosts(BuildContext context, Hashtag hashtag) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => _HashtagPostsSheet(
+          hashtag: hashtag,
+          scrollController: scrollController,
+          fmtCompact: _fmtCompact,
+          fmtRate: _fmtRate,
+        ),
+      ),
+    );
   }
 
   @override
@@ -123,9 +145,10 @@ class _InsightsScreenState extends State<InsightsScreen> {
                       runSpacing: 8,
                       children: provider.hashtags.map((h) {
                         return Tooltip(
-                          message: h.usernames.map((u) => '@$u').join(', '),
-                          child: Chip(
+                          message: 'Toque para ver os posts · usado por: ${h.usernames.map((u) => '@$u').join(', ')}',
+                          child: ActionChip(
                             label: Text('${h.tag} · ${h.postCount} post(s) · ${h.profileCount} perfil(is)'),
+                            onPressed: () => _showHashtagPosts(context, h),
                           ),
                         );
                       }).toList(),
@@ -212,6 +235,127 @@ class _TopPostCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _HashtagPostsSheet extends StatefulWidget {
+  final Hashtag hashtag;
+  final ScrollController scrollController;
+  final String Function(num?) fmtCompact;
+  final String Function(double?) fmtRate;
+
+  const _HashtagPostsSheet({
+    required this.hashtag,
+    required this.scrollController,
+    required this.fmtCompact,
+    required this.fmtRate,
+  });
+
+  @override
+  State<_HashtagPostsSheet> createState() => _HashtagPostsSheetState();
+}
+
+class _HashtagPostsSheetState extends State<_HashtagPostsSheet> {
+  final ApiService _api = ApiService();
+  late Future<List<TopPost>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _api.getPostsByHashtag(widget.hashtag.tag);
+  }
+
+  void _retry() {
+    setState(() => _future = _api.getPostsByHashtag(widget.hashtag.tag));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${widget.hashtag.tag} · quem postou',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: FutureBuilder<List<TopPost>>(
+              future: _future,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(friendlyError(snapshot.error!), textAlign: TextAlign.center),
+                        const SizedBox(height: 8),
+                        OutlinedButton(onPressed: _retry, child: const Text('Tentar novamente')),
+                      ],
+                    ),
+                  );
+                }
+                final posts = snapshot.data ?? [];
+                if (posts.isEmpty) {
+                  return const Center(child: Text('Nenhum post encontrado com essa hashtag.'));
+                }
+                return ListView.separated(
+                  controller: widget.scrollController,
+                  itemCount: posts.length,
+                  separatorBuilder: (_, __) => const Divider(),
+                  itemBuilder: (context, index) {
+                    final post = posts[index];
+                    return ListTile(
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: post.imageUrl != null
+                              ? Image.network(
+                                  post.imageUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade300),
+                                )
+                              : Container(color: Colors.grey.shade300),
+                        ),
+                      ),
+                      title: Text('@${post.username}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(
+                        post.caption?.isNotEmpty == true ? post.caption! : '(sem legenda)',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('❤️ ${widget.fmtCompact(post.likes)}', style: const TextStyle(fontSize: 11)),
+                          Text(widget.fmtRate(post.engagementRate),
+                              style: const TextStyle(fontSize: 11, color: Colors.green)),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -11,14 +11,16 @@ class LeaderboardProvider extends ChangeNotifier {
   bool isLoading = false;
   String? error;
   int days = 7;
+  String sort = 'growth';
 
-  Future<void> load({int? days}) async {
+  Future<void> load({int? days, String? sort}) async {
     if (days != null) this.days = days;
+    if (sort != null) this.sort = sort;
     isLoading = true;
     error = null;
     notifyListeners();
     try {
-      entries = await _api.getLeaderboard(days: this.days);
+      entries = await _api.getLeaderboard(days: this.days, sort: this.sort);
     } catch (e) {
       error = friendlyError(e);
     } finally {

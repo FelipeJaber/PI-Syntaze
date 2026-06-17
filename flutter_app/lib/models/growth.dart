@@ -11,6 +11,9 @@ class Growth {
   final double? avgEngagementRate;
   final int snapshotsInPeriod;
   final bool insufficientData;
+  final int? totalLikesInPeriod;
+  final double? avgLikesInPeriod;
+  final int? postsInPeriod;
 
   Growth({
     this.profileId,
@@ -25,6 +28,9 @@ class Growth {
     this.avgEngagementRate,
     required this.snapshotsInPeriod,
     required this.insufficientData,
+    this.totalLikesInPeriod,
+    this.avgLikesInPeriod,
+    this.postsInPeriod,
   });
 
   factory Growth.fromJson(Map<String, dynamic> json) {
@@ -41,6 +47,9 @@ class Growth {
       avgEngagementRate: (json['avgEngagementRate'] as num?)?.toDouble(),
       snapshotsInPeriod: json['snapshotsInPeriod'] as int? ?? 0,
       insufficientData: json['insufficientData'] as bool? ?? false,
+      totalLikesInPeriod: (json['totalLikesInPeriod'] as num?)?.toInt(),
+      avgLikesInPeriod: (json['avgLikesInPeriod'] as num?)?.toDouble(),
+      postsInPeriod: json['postsInPeriod'] as int?,
     );
   }
 }

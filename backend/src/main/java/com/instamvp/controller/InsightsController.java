@@ -4,6 +4,7 @@ import com.instamvp.dto.HashtagDTO;
 import com.instamvp.dto.TopPostDTO;
 import com.instamvp.service.InsightsService;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,5 +34,13 @@ public class InsightsController {
     public List<HashtagDTO> getTrendingHashtags(@RequestParam(defaultValue = "7") int days,
                                                  @RequestParam(defaultValue = "15") int limit) {
         return insightsService.getTrendingHashtags(days, limit);
+    }
+
+    /** Quem postou usando uma hashtag específica (ex: /api/insights/hashtags/drop/posts) nos últimos `days` dias. */
+    @GetMapping("/hashtags/{tag}/posts")
+    public List<TopPostDTO> getPostsByHashtag(@PathVariable String tag,
+                                               @RequestParam(defaultValue = "30") int days,
+                                               @RequestParam(defaultValue = "50") int limit) {
+        return insightsService.getPostsByHashtag(tag, days, limit);
     }
 }

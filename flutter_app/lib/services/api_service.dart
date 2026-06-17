@@ -127,8 +127,10 @@ class ApiService {
     return Growth.fromJson(jsonDecode(response.body));
   }
 
-  Future<List<Growth>> getLeaderboard({int days = 7}) async {
-    final response = await _send(() => http.get(Uri.parse('$baseUrl/leaderboard?days=$days'), headers: _authHeaders));
+  /// [sort]: growth (padrão) | likes | engagement | activity
+  Future<List<Growth>> getLeaderboard({int days = 7, String sort = 'growth'}) async {
+    final response = await _send(
+        () => http.get(Uri.parse('$baseUrl/leaderboard?days=$days&sort=$sort'), headers: _authHeaders));
     _checkOk(response);
     final List<dynamic> data = jsonDecode(response.body);
     return data.map((e) => Growth.fromJson(e)).toList();
@@ -148,6 +150,17 @@ class ApiService {
     _checkOk(response);
     final List<dynamic> data = jsonDecode(response.body);
     return data.map((e) => Hashtag.fromJson(e)).toList();
+  }
+
+  /// Posts que usaram uma hashtag específica (com ou sem "#" no início), entre todos os concorrentes monitorados.
+  Future<List<TopPost>> getPostsByHashtag(String tag, {int days = 30, int limit = 50}) async {
+    final encodedTag = Uri.encodeComponent(tag);
+    final response = await _send(() => http.get(
+        Uri.parse('$baseUrl/insights/hashtags/$encodedTag/posts?days=$days&limit=$limit'),
+        headers: _authHeaders));
+    _checkOk(response);
+    final List<dynamic> data = jsonDecode(response.body);
+    return data.map((e) => TopPost.fromJson(e)).toList();
   }
 
   Future<Map<String, dynamic>> syncProfiles(List<String> usernames) async {

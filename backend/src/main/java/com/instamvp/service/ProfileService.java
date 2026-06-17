@@ -1,6 +1,7 @@
 package com.instamvp.service;
 
 import com.instamvp.dto.GrowthDTO;
+import com.instamvp.dto.LeaderboardSort;
 import com.instamvp.dto.PostDTO;
 import com.instamvp.dto.ProfileDTO;
 import com.instamvp.model.Post;
@@ -106,24 +107,30 @@ public class ProfileService {
     }
 
     /**
-     * Ranking de todos os perfis monitorados por crescimento de seguidores no
-     * período, com engajamento médio como contexto adicional. Perfis sem
-     * histórico suficiente ainda aparecem no fim da lista (insufficientData=true),
-     * em vez de serem escondidos — assim dá pra ver quem ainda precisa de mais
-     * ciclos do worker antes de confiar no ranking.
+     * Ranking de todos os perfis monitorados no período, com 4 critérios de
+     * ordenação possíveis (ver {@link LeaderboardSort}):
+     * <ul>
+     *   <li>GROWTH — % de crescimento de seguidores (padrão);</li>
+     *   <li>LIKES — total de curtidas somadas nos posts do período;</li>
+     *   <li>ENGAGEMENT — taxa média de engajamento no período (melhor proxy
+     *       de "retenção de audiência" disponível sem dados de churn de
+     *       seguidores: mostra quem prende mais atenção por seguidor, não só
+     *       quem tem mais seguidores);</li>
+     *   <li>ACTIVITY — quantidade de posts publicados no período (cadência).</li>
+     * </ul>
+     * Perfis sem histórico suficiente para GROWTH ainda aparecem no fim da
+     * lista (insufficientData=true) em vez de serem escondidos.
      */
-    public List<GrowthDTO> computeLeaderboard(int days) {
+    public List<GrowthDTO> computeLeaderboard(int days, LeaderboardSort sort) {
+        LocalDateTime since = LocalDateTime.now().minusDays(days);
+
         List<GrowthDTO> entries = profileRepository.findAll().stream()
                 .map(profile -> {
                     GrowthDTO growth = computeGrowth(profile.getId(), days);
-                    growth.setAvgEngagementRate(computeAvgEngagementRate(profile));
+                    applyPeriodMetrics(growth, profile, since);
                     return growth;
                 })
-                .sorted(Comparator
-                        .comparing(GrowthDTO::isInsufficientData)
-                        .thenComparing(Comparator.comparing(
-                                (GrowthDTO g) -> g.getFollowersGrowthPercent() == null ? Double.NEGATIVE_INFINITY
-                                        : g.getFollowersGrowthPercent()).reversed()))
+                .sorted(comparatorFor(sort))
                 .collect(Collectors.toList());
 
         for (int i = 0; i < entries.size(); i++) {
@@ -133,25 +140,52 @@ public class ProfileService {
         return entries;
     }
 
-    private Double computeAvgEngagementRate(Profile profile) {
-        if (profile.getFollowers() == null || profile.getFollowers() <= 0) {
-            return null;
-        }
+    private Comparator<GrowthDTO> comparatorFor(LeaderboardSort sort) {
+        return switch (sort) {
+            case LIKES -> Comparator.comparing(
+                    (GrowthDTO g) -> g.getTotalLikesInPeriod() == null ? -1L : g.getTotalLikesInPeriod()).reversed();
+            case ENGAGEMENT -> Comparator.comparing(
+                    (GrowthDTO g) -> g.getAvgEngagementRate() == null ? -1.0 : g.getAvgEngagementRate()).reversed();
+            case ACTIVITY -> Comparator.comparing(
+                    (GrowthDTO g) -> g.getPostsInPeriod() == null ? -1 : g.getPostsInPeriod()).reversed();
+            case GROWTH -> Comparator
+                    .comparing(GrowthDTO::isInsufficientData)
+                    .thenComparing(Comparator.comparing(
+                            (GrowthDTO g) -> g.getFollowersGrowthPercent() == null ? Double.NEGATIVE_INFINITY
+                                    : g.getFollowersGrowthPercent()).reversed());
+        };
+    }
 
-        List<Post> posts = postRepository.findByProfileIdOrderByPostDateDesc(profile.getId());
+    /** Calcula curtidas totais/médias, engajamento médio e nº de posts — todos restritos ao período (`since`). */
+    private void applyPeriodMetrics(GrowthDTO dto, Profile profile, LocalDateTime since) {
+        List<Post> posts = postRepository.findByProfileIdAndPostDateGreaterThanEqual(profile.getId(), since);
+
+        dto.setPostsInPeriod(posts.size());
+
         if (posts.isEmpty()) {
-            return null;
+            return;
         }
 
-        double sum = 0;
-        int counted = 0;
+        long totalLikes = 0;
+        double engagementSum = 0;
+        int engagementCounted = 0;
+        Long followers = profile.getFollowers();
+
         for (Post post : posts) {
             long likes = post.getLikes() != null ? post.getLikes() : 0;
             long comments = post.getComments() != null ? post.getComments() : 0;
-            sum += (likes + comments) / (double) profile.getFollowers();
-            counted++;
+            totalLikes += likes;
+
+            if (followers != null && followers > 0) {
+                engagementSum += (likes + comments) / (double) followers;
+                engagementCounted++;
+            }
         }
 
-        return counted > 0 ? sum / counted : null;
+        dto.setTotalLikesInPeriod(totalLikes);
+        dto.setAvgLikesInPeriod(totalLikes / (double) posts.size());
+        if (engagementCounted > 0) {
+            dto.setAvgEngagementRate(engagementSum / engagementCounted);
+        }
     }
 }

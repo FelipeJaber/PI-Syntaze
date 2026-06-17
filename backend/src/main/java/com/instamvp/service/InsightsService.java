@@ -47,6 +47,26 @@ public class InsightsService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Posts que usaram uma hashtag específica (ex.: "#drop" ou "drop", o "#"
+     * é opcional na entrada), publicados nos últimos `days` dias — "quem
+     * postou sobre #X" entre os concorrentes monitorados.
+     */
+    @Transactional(readOnly = true)
+    public List<TopPostDTO> getPostsByHashtag(String tag, int days, int limit) {
+        String normalizedTag = normalizeTag(tag);
+        LocalDateTime since = LocalDateTime.now().minusDays(days);
+        List<Post> posts = postRepository.findByPostDateGreaterThanEqual(since);
+
+        return posts.stream()
+                .filter(post -> post.getCaption() != null && extractHashtags(post.getCaption()).contains(normalizedTag))
+                .map(this::toTopPostDTO)
+                .sorted(Comparator.comparing((TopPostDTO d) -> d.getPostDate() == null
+                        ? LocalDateTime.MIN : d.getPostDate()).reversed())
+                .limit(limit)
+                .collect(Collectors.toList());
+    }
+
     private TopPostDTO toTopPostDTO(Post post) {
         TopPostDTO dto = new TopPostDTO();
         dto.setPostId(post.getId());
@@ -79,14 +99,8 @@ public class InsightsService {
             if (post.getCaption() == null) continue;
 
             // Conta no máximo 1x por post (evita um post com hashtag repetida inflar o ranking).
-            Set<String> tagsInThisPost = new HashSet<>();
-            Matcher matcher = HASHTAG_PATTERN.matcher(post.getCaption());
-            while (matcher.find()) {
-                tagsInThisPost.add("#" + matcher.group(1).toLowerCase());
-            }
-
             String username = post.getProfile().getUsername();
-            for (String tag : tagsInThisPost) {
+            for (String tag : extractHashtags(post.getCaption())) {
                 HashtagAccumulator acc = accumulators.computeIfAbsent(tag, t -> new HashtagAccumulator());
                 acc.postCount++;
                 acc.usernames.add(username);
@@ -105,6 +119,21 @@ public class InsightsService {
                 .sorted(Comparator.comparingInt(HashtagDTO::getPostCount).reversed())
                 .limit(limit)
                 .collect(Collectors.toList());
+    }
+
+    /** Extrai as hashtags distintas (lowercase, com "#") de uma legenda. */
+    private Set<String> extractHashtags(String caption) {
+        Set<String> tags = new HashSet<>();
+        Matcher matcher = HASHTAG_PATTERN.matcher(caption);
+        while (matcher.find()) {
+            tags.add("#" + matcher.group(1).toLowerCase());
+        }
+        return tags;
+    }
+
+    private String normalizeTag(String tag) {
+        String trimmed = tag == null ? "" : tag.trim().toLowerCase();
+        return trimmed.startsWith("#") ? trimmed : "#" + trimmed;
     }
 
     private static class HashtagAccumulator {

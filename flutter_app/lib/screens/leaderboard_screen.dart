@@ -5,6 +5,13 @@ import 'package:provider/provider.dart';
 import '../models/growth.dart';
 import '../providers/leaderboard_provider.dart';
 
+const Map<String, String> _sortLabels = {
+  'growth': 'Crescimento',
+  'likes': 'Mais curtidos',
+  'engagement': 'Melhor engajamento (retenção)',
+  'activity': 'Mais ativos',
+};
+
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
 
@@ -45,6 +52,18 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       appBar: AppBar(
         title: const Text('Leaderboard'),
         actions: [
+          PopupMenuButton<String>(
+            initialValue: provider.sort,
+            tooltip: 'Critério de ordenação',
+            onSelected: (sort) => provider.load(sort: sort),
+            itemBuilder: (context) => _sortLabels.entries
+                .map((e) => PopupMenuItem(value: e.key, child: Text(e.value)))
+                .toList(),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Icon(Icons.sort),
+            ),
+          ),
           PopupMenuButton<int>(
             initialValue: provider.days,
             onSelected: (days) => provider.load(days: days),
@@ -60,9 +79,25 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () => provider.load(),
-        child: _buildBody(provider),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Ordenado por: ${_sortLabels[provider.sort]}',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () => provider.load(),
+              child: _buildBody(provider),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -100,6 +135,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         final g = provider.entries[index];
         return _LeaderboardCard(
           growth: g,
+          sort: provider.sort,
           fmtCompact: _fmtCompact,
           fmtPercent: _fmtPercent,
           fmtRate: _fmtRate,
@@ -111,23 +147,39 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
 class _LeaderboardCard extends StatelessWidget {
   final Growth growth;
+  final String sort;
   final String Function(num?) fmtCompact;
   final String Function(double?) fmtPercent;
   final String Function(double?) fmtRate;
 
   const _LeaderboardCard({
     required this.growth,
+    required this.sort,
     required this.fmtCompact,
     required this.fmtPercent,
     required this.fmtRate,
   });
 
+  /// Texto + cor do badge de destaque, de acordo com o critério de ordenação ativo.
+  (String, Color) _metricBadge() {
+    switch (sort) {
+      case 'likes':
+        return ('${fmtCompact(growth.totalLikesInPeriod)} curtidas', Colors.pink);
+      case 'engagement':
+        return (fmtRate(growth.avgEngagementRate), Colors.green);
+      case 'activity':
+        return ('${growth.postsInPeriod ?? 0} posts', Colors.blue);
+      case 'growth':
+      default:
+        if (growth.insufficientData) return ('sem histórico', Colors.grey);
+        final percent = growth.followersGrowthPercent ?? 0;
+        return (fmtPercent(growth.followersGrowthPercent), percent >= 0 ? Colors.green : Colors.red);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isUp = (growth.followersGrowthPercent ?? 0) > 0;
-    final color = growth.insufficientData
-        ? Colors.grey
-        : (isUp ? Colors.green : Colors.red);
+    final (badgeText, color) = _metricBadge();
 
     return Card(
       child: Padding(
@@ -159,7 +211,7 @@ class _LeaderboardCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
-                growth.insufficientData ? 'sem histórico' : fmtPercent(growth.followersGrowthPercent),
+                badgeText,
                 style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ),

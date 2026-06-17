@@ -27,14 +27,32 @@ public class GrowthDTO {
     /** Posição no leaderboard (1 = maior crescimento). Só preenchido quando vem de /api/leaderboard. */
     private Integer rank;
 
-    /** Média de engagementRate dos posts coletados do perfil. Só preenchido quando vem de /api/leaderboard. */
+    /** Média de engagementRate dos posts no período. Só preenchido quando vem de /api/leaderboard. */
     private Double avgEngagementRate;
+
+    /** Soma de curtidas dos posts publicados no período. Só preenchido quando vem de /api/leaderboard. */
+    private Long totalLikesInPeriod;
+
+    /** Média de curtidas por post no período. Só preenchido quando vem de /api/leaderboard. */
+    private Double avgLikesInPeriod;
+
+    /** Quantidade de posts publicados no período (cadência/atividade). Só preenchido quando vem de /api/leaderboard. */
+    private Integer postsInPeriod;
 
     public Integer getRank() { return rank; }
     public void setRank(Integer rank) { this.rank = rank; }
 
     public Double getAvgEngagementRate() { return avgEngagementRate; }
     public void setAvgEngagementRate(Double avgEngagementRate) { this.avgEngagementRate = avgEngagementRate; }
+
+    public Long getTotalLikesInPeriod() { return totalLikesInPeriod; }
+    public void setTotalLikesInPeriod(Long totalLikesInPeriod) { this.totalLikesInPeriod = totalLikesInPeriod; }
+
+    public Double getAvgLikesInPeriod() { return avgLikesInPeriod; }
+    public void setAvgLikesInPeriod(Double avgLikesInPeriod) { this.avgLikesInPeriod = avgLikesInPeriod; }
+
+    public Integer getPostsInPeriod() { return postsInPeriod; }
+    public void setPostsInPeriod(Integer postsInPeriod) { this.postsInPeriod = postsInPeriod; }
 
     public Long getProfileId() { return profileId; }
     public void setProfileId(Long profileId) { this.profileId = profileId; }

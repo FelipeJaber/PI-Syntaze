@@ -183,6 +183,12 @@
     <h2>
       Leaderboard
       <span class="actions">
+        <select id="leaderboardSort" onchange="loadLeaderboard()">
+          <option value="growth" selected>Maior crescimento</option>
+          <option value="likes">Mais curtidos</option>
+          <option value="engagement">Melhor engajamento (retenção)</option>
+          <option value="activity">Mais ativos</option>
+        </select>
         <select id="leaderboardDays" onchange="loadLeaderboard()">
           <option value="1">1 dia</option>
           <option value="7" selected>7 dias</option>
@@ -513,31 +519,42 @@ function errorBox(message, retryCall) {
 
 // ===================== Seções do dashboard =====================
 
+// Para cada critério de ordenação, qual coluna extra mostrar em destaque
+// (a métrica que efetivamente decide o rank naquele modo).
+const LEADERBOARD_SORT_META = {
+  growth: { label: 'Crescimento', render: g => {
+    const cls = g.insufficientData ? 'flat' : (g.followersGrowthPercent > 0 ? 'up' : g.followersGrowthPercent < 0 ? 'down' : 'flat');
+    const text = g.insufficientData ? 'sem histórico' : fmtPercent(g.followersGrowthPercent);
+    return `<span class="pill ${cls}">${text}</span>`;
+  }},
+  likes: { label: 'Curtidas no período', render: g => `<b>${fmtNumber(g.totalLikesInPeriod)}</b> <span class="muted">(${fmtNumber(g.avgLikesInPeriod)}/post)</span>` },
+  engagement: { label: 'Engajamento médio', render: g => `<span class="pill up">${fmtRate(g.avgEngagementRate)}</span>` },
+  activity: { label: 'Posts no período', render: g => `<b>${g.postsInPeriod ?? 0}</b> post(s)` },
+};
+
 async function loadLeaderboard() {
   const days = document.getElementById('leaderboardDays').value;
+  const sort = document.getElementById('leaderboardSort').value;
+  const meta = LEADERBOARD_SORT_META[sort] || LEADERBOARD_SORT_META.growth;
   const container = document.getElementById('leaderboardContainer');
   try {
-    const data = await apiFetch(`${API}/leaderboard?days=${days}`);
+    const data = await apiFetch(`${API}/leaderboard?days=${days}&sort=${sort}`);
     if (!data.length) {
       container.innerHTML = '<div class="empty">Nenhum perfil ainda. Adicione um na watchlist abaixo.</div>';
       return;
     }
-    const rows = data.map(g => {
-      const pillClass = g.insufficientData ? 'flat' : (g.followersGrowthPercent > 0 ? 'up' : g.followersGrowthPercent < 0 ? 'down' : 'flat');
-      const pillText = g.insufficientData ? 'sem histórico' : fmtPercent(g.followersGrowthPercent);
-      return `<tr>
+    const rows = data.map(g => `<tr>
         <td><span class="badge-rank">${g.rank ?? '-'}</span></td>
         <td><span class="profile-link" onclick="openPostsByUsername('${g.username}')">@${g.username}</span></td>
         <td>${fmtNumber(g.followersEnd)}</td>
-        <td><span class="pill ${pillClass}">${pillText}</span></td>
+        <td>${meta.render(g)}</td>
         <td>${g.followersDelta !== null && g.followersDelta !== undefined ? (g.followersDelta > 0 ? '+' : '') + fmtNumber(g.followersDelta) : '—'}</td>
         <td>${fmtRate(g.avgEngagementRate)}</td>
         <td class="muted">${g.snapshotsInPeriod}</td>
-      </tr>`;
-    }).join('');
+      </tr>`).join('');
     container.innerHTML = `<table>
       <thead><tr>
-        <th>#</th><th>Perfil</th><th>Seguidores</th><th>Crescimento</th><th>Δ Seguidores</th><th>Engaj. médio</th><th>Snapshots</th>
+        <th>#</th><th>Perfil</th><th>Seguidores</th><th>${meta.label}</th><th>Δ Seguidores</th><th>Engaj. médio</th><th>Snapshots</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -649,7 +666,8 @@ async function loadHashtags() {
       return;
     }
     container.innerHTML = `<div class="row" style="flex-wrap:wrap; gap:8px;">${tags.map(t => `
-      <span class="pill flat" title="${t.usernames.map(u => '@' + u).join(', ')}">
+      <span class="pill flat" style="cursor:pointer;" title="Clique para ver os posts — usado por: ${t.usernames.map(u => '@' + u).join(', ')}"
+            onclick="openPostsByHashtag('${t.tag.replace(/'/g, "\\'")}')">
         ${t.tag} · ${t.postCount} post(s) · ${t.profileCount} perfil(is)
       </span>
     `).join('')}</div>`;
@@ -721,6 +739,41 @@ async function openPosts(profileId, username) {
     `).join('')}</div>`;
   } catch (e) {
     container.innerHTML = errorBox(e.message, `openPosts(${profileId}, '${username}')`);
+  }
+}
+
+async function openPostsByHashtag(tag) {
+  const panel = document.getElementById('postsPanel');
+  const container = document.getElementById('postsContainer');
+  document.getElementById('postsUsername').textContent = `${tag} (todos os concorrentes)`;
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth' });
+  container.innerHTML = '<div class="empty">carregando...</div>';
+  try {
+    const posts = await apiFetch(`${API}/insights/hashtags/${encodeURIComponent(tag)}/posts?days=30&limit=50`);
+    if (!posts.length) {
+      container.innerHTML = '<div class="empty">Nenhum post encontrado com essa hashtag nos últimos 30 dias.</div>';
+      return;
+    }
+    container.innerHTML = `<div class="posts-grid">${posts.map(post => `
+      <div class="post-card">
+        ${postThumb(post)}
+        <div class="post-body">
+        <div class="row" style="justify-content:space-between;">
+          <span class="profile-link" onclick="openPosts(${post.profileId}, '${post.username}')">@${post.username}</span>
+          <span class="muted">${fmtDate(post.postDate)}</span>
+        </div>
+        <div class="caption">${post.caption ? post.caption.slice(0, 120) : '(sem legenda)'}</div>
+        <div class="stats">
+          <span>❤️ ${fmtNumber(post.likes)}</span>
+          <span>💬 ${fmtNumber(post.comments)}</span>
+          <span class="muted">${post.engagementRate !== null && post.engagementRate !== undefined ? fmtRate(post.engagementRate) : ''}</span>
+        </div>
+        </div>
+      </div>
+    `).join('')}</div>`;
+  } catch (e) {
+    container.innerHTML = errorBox(e.message, `openPostsByHashtag('${tag}')`);
   }
 }
 

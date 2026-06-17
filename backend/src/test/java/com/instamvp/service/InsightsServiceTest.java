@@ -1,6 +1,7 @@
 package com.instamvp.service;
 
 import com.instamvp.dto.HashtagDTO;
+import com.instamvp.dto.TopPostDTO;
 import com.instamvp.model.Post;
 import com.instamvp.model.Profile;
 import com.instamvp.repository.PostRepository;
@@ -12,8 +13,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -63,5 +67,26 @@ class InsightsServiceTest {
 
         assertEquals(2, dropTag.getPostCount()); // 1 vez por post, não 3
         assertEquals(2, dropTag.getProfileCount()); // nike + adidas
+    }
+
+    @Test
+    void filtersPostsByHashtagRegardlessOfCaseOrLeadingHash() {
+        List<Post> posts = List.of(
+                buildPost("nike", "Lançamento novo #Drop hoje"),
+                buildPost("adidas", "Sem hashtag relevante aqui"),
+                buildPost("puma", "Mais um #drop chegando")
+        );
+        when(postRepository.findByPostDateGreaterThanEqual(any())).thenReturn(posts);
+
+        // aceita tanto "#drop" quanto "drop" (sem o #) como entrada
+        List<TopPostDTO> withHash = insightsService.getPostsByHashtag("#drop", 30, 50);
+        List<TopPostDTO> withoutHash = insightsService.getPostsByHashtag("DROP", 30, 50);
+
+        assertEquals(2, withHash.size());
+        assertEquals(2, withoutHash.size());
+
+        Set<String> usernames = withHash.stream().map(TopPostDTO::getUsername).collect(Collectors.toSet());
+        assertTrue(usernames.contains("nike"));
+        assertTrue(usernames.contains("puma"));
     }
 }

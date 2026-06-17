@@ -253,18 +253,27 @@ também `engagementRate` em cada post (`(likes + comments) / followers` do
 perfil), útil para comparar quais posts de um concorrente performaram acima
 da média.
 
-## 1.4 Leaderboard (comparação entre concorrentes)
+## 1.4 Leaderboard (comparação entre concorrentes, com 4 critérios de ordenação)
 
 ```bash
-curl -u admin:admin123 "http://localhost:8080/api/leaderboard?days=7"
+curl -u admin:admin123 "http://localhost:8080/api/leaderboard?days=7&sort=growth"
 ```
 
-Retorna todos os perfis monitorados, um `GrowthDTO` por perfil, ordenados por
-`followersGrowthPercent` (maior crescimento primeiro) — cada item já vem com
-`rank` (posição) e `avgEngagementRate` (engajamento médio dos posts coletados).
-Perfis com `insufficientData: true` (histórico insuficiente ainda) aparecem
-no fim da lista em vez de sumirem, pra ficar claro quem ainda precisa de mais
-ciclos do worker antes do ranking ficar confiável.
+`sort` aceita 4 valores (padrão `growth`):
+
+| `sort` | O que mede | Quando usar |
+|---|---|---|
+| `growth` | % de crescimento de seguidores no período | "quem está ganhando mais seguidores" |
+| `likes` | Soma de curtidas dos posts no período (`totalLikesInPeriod`, `avgLikesInPeriod`) | "quem teve os posts mais curtidos" |
+| `engagement` | Taxa média de engajamento `(likes+comments)/followers` no período | proxy de **retenção de audiência** — mostra quem prende mais atenção *por seguidor*, não só quem é maior. Sem dados de churn de seguidores não dá pra medir retenção "de verdade", então essa é a métrica mais próxima disso que temos |
+| `activity` | Nº de posts publicados no período (`postsInPeriod`) | cadência/frequência de postagem |
+
+Cada item do array sempre retorna todas as métricas (`totalLikesInPeriod`,
+`avgLikesInPeriod`, `postsInPeriod`, `avgEngagementRate`, `followersGrowthPercent`
+etc.) independente do `sort` escolhido — o parâmetro só muda a **ordem**, não
+o que vem no payload. `rank` reflete a posição pro critério ativo. Perfis com
+`insufficientData: true` (sem histórico suficiente pra `growth`) aparecem no
+fim da lista em vez de sumirem.
 
 ## 1.5 Inteligência de conteúdo (melhores posts e hashtags em alta)
 
@@ -296,6 +305,19 @@ Cada hashtag retorna `postCount` (quantos posts usaram), `profileCount`
 se um termo está sendo usado por vários concorrentes ao mesmo tempo
 (tendência de mercado) ou só por um (campanha isolada). Ambos endpoints já
 aparecem no dashboard web (seção "🔥 Melhores posts" e "# Hashtags em alta").
+
+**Quem postou usando uma hashtag específica:**
+
+```bash
+curl -u admin:admin123 "http://localhost:8080/api/insights/hashtags/drop/posts?days=30&limit=50"
+```
+
+O `{tag}` na URL aceita com ou sem `#` (`drop` e `%23drop` funcionam igual,
+case-insensitive). Retorna a lista de posts (mesmo formato do "melhores
+posts") que usaram essa hashtag, ordenados por data mais recente. No
+dashboard web, clicar em qualquer hashtag da seção "# Hashtags em alta" abre
+o painel de posts já filtrado; no Flutter, abre um bottom sheet com a mesma
+lista.
 
 ## 1. Backend (Spring Boot)
 

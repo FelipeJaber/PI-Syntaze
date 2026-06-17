@@ -1,6 +1,8 @@
 package com.instamvp.service;
 
 import com.instamvp.dto.GrowthDTO;
+import com.instamvp.dto.LeaderboardSort;
+import com.instamvp.model.Post;
 import com.instamvp.model.Profile;
 import com.instamvp.model.ProfileSnapshot;
 import com.instamvp.repository.PostRepository;
@@ -21,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 /**
@@ -50,6 +53,19 @@ class ProfileServiceTest {
         profile.setId(id);
         profile.setUsername(username);
         return profile;
+    }
+
+    private Profile buildProfile(Long id, String username, Long followers) {
+        Profile profile = buildProfile(id, username);
+        profile.setFollowers(followers);
+        return profile;
+    }
+
+    private Post buildPost(Long likes) {
+        Post post = new Post();
+        post.setLikes(likes);
+        post.setComments(0L);
+        return post;
     }
 
     private ProfileSnapshot buildSnapshot(Long id, Long followers, LocalDateTime capturedAt) {
@@ -95,5 +111,29 @@ class ProfileServiceTest {
         GrowthDTO growth = profileService.computeGrowth(2L, 7);
 
         assertTrue(growth.isInsufficientData());
+    }
+
+    @Test
+    void leaderboardSortedByLikesIgnoresFollowerCount() {
+        Profile nike = buildProfile(1L, "nike", 1000L);
+        Profile adidas = buildProfile(2L, "adidas", 2_000_000L); // muito mais seguidor, mas menos curtidas
+
+        when(profileRepository.findAll()).thenReturn(List.of(nike, adidas));
+        when(profileRepository.findById(1L)).thenReturn(Optional.of(nike));
+        when(profileRepository.findById(2L)).thenReturn(Optional.of(adidas));
+        when(profileSnapshotRepository.findSinceOrderByCapturedAtAsc(anyLong(), any())).thenReturn(List.of());
+        when(profileSnapshotRepository.findFirstByProfileIdOrderByCapturedAtDesc(anyLong()))
+                .thenReturn(Optional.empty());
+        when(postRepository.findByProfileIdAndPostDateGreaterThanEqual(eq(1L), any()))
+                .thenReturn(List.of(buildPost(500L)));
+        when(postRepository.findByProfileIdAndPostDateGreaterThanEqual(eq(2L), any()))
+                .thenReturn(List.of(buildPost(100L)));
+
+        List<GrowthDTO> leaderboard = profileService.computeLeaderboard(7, LeaderboardSort.LIKES);
+
+        assertEquals("nike", leaderboard.get(0).getUsername());
+        assertEquals(1, leaderboard.get(0).getRank());
+        assertEquals(500L, leaderboard.get(0).getTotalLikesInPeriod());
+        assertEquals("adidas", leaderboard.get(1).getUsername());
     }
 }

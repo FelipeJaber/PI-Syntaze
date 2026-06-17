@@ -11,4 +11,5 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     List<Post> findByProfileIdOrderByPostDateDesc(Long profileId);
     Optional<Post> findByProfileIdAndInstagramPostId(Long profileId, String instagramPostId);
     List<Post> findByPostDateGreaterThanEqual(LocalDateTime since);
+    List<Post> findByProfileIdAndPostDateGreaterThanEqual(Long profileId, LocalDateTime since);
 }

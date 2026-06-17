@@ -10,6 +10,9 @@ import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
 import 'services/api_service.dart';
 
+/// Azul Oxford — cor de marca do Syntaze, em vez do roxo padrão do Material 3.
+const Color kOxfordBlue = Color(0xFF0B132B);
+
 void main() {
   runApp(const InstaMvpApp());
 }
@@ -31,7 +34,7 @@ class InstaMvpApp extends StatelessWidget {
         title: 'Syntaze',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          colorSchemeSeed: Colors.deepPurple,
+          colorSchemeSeed: kOxfordBlue,
           useMaterial3: true,
         ),
         home: const AuthGate(),

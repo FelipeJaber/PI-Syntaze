@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../main.dart' show kOxfordBlue;
 import '../providers/auth_provider.dart';
 import 'register_screen.dart';
 
@@ -64,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(Icons.insights, size: 56, color: Colors.deepPurple),
+                    const Icon(Icons.insights, size: 56, color: kOxfordBlue),
                     const SizedBox(height: 12),
                     Text('Syntaze', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium),
                     const SizedBox(height: 4),

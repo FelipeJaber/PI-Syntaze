@@ -28,6 +28,11 @@ logging:
   level:
     com.instamvp: INFO
 
+security:
+  demo:
+    username: admin
+    password: admin123 # autenticação básica (HTTP Basic) — troque em produção; aqui é só demo acadêmica
+
 scraper:
   # Seed inicial da watchlist na primeira subida (só roda 1x; perfis que não
   # existirem ou estiverem privados ficam marcados como tal, sem quebrar o worker).

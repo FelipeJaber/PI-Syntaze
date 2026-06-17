@@ -184,7 +184,7 @@ class _TopPostCard extends StatelessWidget {
                     children: [
                       const Icon(Icons.favorite, size: 12, color: Colors.red),
                       const SizedBox(width: 2),
-                      Text('${fmtCompact(post.likes)}', style: const TextStyle(fontSize: 11)),
+                      Text(fmtCompact(post.likes), style: const TextStyle(fontSize: 11)),
                       const SizedBox(width: 8),
                       Text(fmtRate(post.engagementRate),
                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),

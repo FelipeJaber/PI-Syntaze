@@ -9,6 +9,29 @@ instamvp/
   GUIA_EXECUCAO.md
 ```
 
+## -1. Autenticação (HTTP Basic)
+
+Toda a API (`/api/**`) e o dashboard web exigem autenticação básica (HTTP
+Basic Auth). Credenciais padrão (configuráveis em `application.yml`, seção
+`security.demo`, ou no Flutter em `lib/services/api_service.dart`):
+
+```
+usuário: admin
+senha:   admin123
+```
+
+No navegador, ao acessar `http://localhost:8080/`, um popup nativo de login
+aparece automaticamente — depois disso, todas as chamadas da própria página
+(incluindo as do dashboard) reaproveitam a mesma credencial sem precisar
+logar de novo. No `curl`, use `-u admin:admin123`. No Flutter, o
+`ApiService` já envia o header `Authorization: Basic ...` em toda chamada
+automaticamente.
+
+⚠️ É uma autenticação propositalmente simples (1 usuário fixo, sem
+cadastro/roles) — adequada ao escopo do projeto acadêmico, não para
+produção real com dados sensíveis. O H2 Console (`/h2-console`) fica
+liberado sem autenticação, por ser uma ferramenta só de desenvolvimento local.
+
 ## 0. Dashboard web (servido pelo próprio backend)
 
 O Spring Boot serve um dashboard estático em `backend/src/main/resources/static/index.html`
@@ -59,7 +82,7 @@ java -cp "target/classes;$(cat cp.txt)" com.microsoft.playwright.CLI install chr
 **Uso:**
 
 ```bash
-curl -X POST http://localhost:8080/api/scraper/sync-browser \
+curl -u admin:admin123 -X POST http://localhost:8080/api/scraper/sync-browser \
   -H "Content-Type: application/json" \
   -d '{"usernames": ["nike", "adidas"]}'
 ```
@@ -112,7 +135,7 @@ para teste/demo.
 **Adicionar um perfil à watchlist** (só o username):
 
 ```bash
-curl -X POST http://localhost:8080/api/scraper/watchlist \
+curl -u admin:admin123 -X POST http://localhost:8080/api/scraper/watchlist \
   -H "Content-Type: application/json" \
   -d '{"username": "nike"}'
 ```
@@ -121,7 +144,7 @@ curl -X POST http://localhost:8080/api/scraper/watchlist \
 última verificação):
 
 ```bash
-curl http://localhost:8080/api/scraper/watchlist
+curl -u admin:admin123 http://localhost:8080/api/scraper/watchlist
 ```
 
 Cada item vem com `lastStatus` (`PENDING`, `OK`, `PRIVATE`, `NOT_FOUND` ou
@@ -135,13 +158,13 @@ O dashboard web já mostra esse status como badge na seção da watchlist.
 **Ligar/desligar a busca de um perfil** (toggle, sem remover da lista):
 
 ```bash
-curl -X PATCH http://localhost:8080/api/scraper/watchlist/nike/toggle
+curl -u admin:admin123 -X PATCH http://localhost:8080/api/scraper/watchlist/nike/toggle
 ```
 
 **Remover da watchlist:**
 
 ```bash
-curl -X DELETE http://localhost:8080/api/scraper/watchlist/nike
+curl -u admin:admin123 -X DELETE http://localhost:8080/api/scraper/watchlist/nike
 ```
 
 Assim que houver pelo menos um username ativo e o próximo ciclo do worker
@@ -176,7 +199,7 @@ crescimento ao longo do tempo — sem isso só teríamos a "foto" mais recente.
 **Crescimento de um perfil em uma janela de dias:**
 
 ```bash
-curl "http://localhost:8080/api/profiles/1/growth?days=7"
+curl -u admin:admin123 "http://localhost:8080/api/profiles/1/growth?days=7"
 ```
 
 Retorna `followersDelta`, `followersGrowthPercent`, `postsCountDelta` etc.
@@ -192,7 +215,7 @@ da média.
 ## 1.4 Leaderboard (comparação entre concorrentes)
 
 ```bash
-curl "http://localhost:8080/api/leaderboard?days=7"
+curl -u admin:admin123 "http://localhost:8080/api/leaderboard?days=7"
 ```
 
 Retorna todos os perfis monitorados, um `GrowthDTO` por perfil, ordenados por
@@ -208,14 +231,14 @@ ciclos do worker antes do ranking ficar confiável.
 num período (`days=1` = hoje):
 
 ```bash
-curl "http://localhost:8080/api/insights/top-posts?days=1&limit=10"
+curl -u admin:admin123 "http://localhost:8080/api/insights/top-posts?days=1&limit=10"
 ```
 
 **Hashtags em alta** entre todos os concorrentes monitorados (extraídas via
 regex das legendas, `#exemplo` contado no máximo 1x por post):
 
 ```bash
-curl "http://localhost:8080/api/insights/hashtags?days=7&limit=20"
+curl -u admin:admin123 "http://localhost:8080/api/insights/hashtags?days=7&limit=20"
 ```
 
 **Imagens dos posts:** `Post.imageUrl` (e portanto `PostDTO.imageUrl` e
@@ -253,18 +276,18 @@ Banco H2 em arquivo (`./backend/data/instamvp.mv.db`), criado automaticamente
 
 ```bash
 # Sincronizar perfis (dispara o scraper)
-curl -X POST http://localhost:8080/api/scraper/sync \
+curl -u admin:admin123 -X POST http://localhost:8080/api/scraper/sync \
   -H "Content-Type: application/json" \
   -d '{"usernames": ["nike", "adidas", "puma"]}'
 
 # Listar perfis
-curl http://localhost:8080/api/profiles
+curl -u admin:admin123 http://localhost:8080/api/profiles
 
 # Detalhe de um perfil
-curl http://localhost:8080/api/profiles/1
+curl -u admin:admin123 http://localhost:8080/api/profiles/1
 
 # Posts de um perfil
-curl http://localhost:8080/api/profiles/1/posts
+curl -u admin:admin123 http://localhost:8080/api/profiles/1/posts
 ```
 
 ## 2. Flutter App

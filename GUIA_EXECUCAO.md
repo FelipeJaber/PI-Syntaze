@@ -36,10 +36,23 @@ username se as credenciais forem válidas, 401 se não):
 curl -u felipe:minhasenha http://localhost:8080/api/auth/me
 ```
 
-No navegador, ao acessar `http://localhost:8080/`, um popup nativo de login
-aparece automaticamente — depois disso, todas as chamadas da própria página
-(incluindo as do dashboard) reaproveitam a mesma credencial. No `curl`, use
-`-u usuario:senha`.
+**No `curl`**, use `-u usuario:senha`.
+
+**No dashboard web** (`index.html`), não existe mais popup nativo do
+navegador — há uma tela de Login/Registro de verdade dentro da própria
+página (`#authScreen`). Ao abrir `http://localhost:8080/`:
+1. Se já tiver credenciais salvas (em `localStorage`), valida automaticamente
+   contra `GET /api/auth/me` e entra direto.
+2. Senão, mostra o formulário de login (com link pra alternar pro de
+   cadastro). Login bem-sucedido salva as credenciais no `localStorage` e
+   troca para `#appScreen` (o dashboard de verdade).
+3. Botão **Sair** no header do dashboard limpa o `localStorage` e volta pro
+   login.
+4. Qualquer chamada da API que receba **401** (sessão perdida — ex: banco
+   foi resetado e o usuário não existe mais) limpa as credenciais e volta
+   automaticamente pro login com aviso "Sessão expirada".
+5. Falha de rede (backend fora do ar) mostra mensagem amigável com botão
+   "Tentar novamente" em vez de erro técnico cru.
 
 **No Flutter**, o app agora tem telas de Login e Registro de verdade
 (`lib/screens/login_screen.dart` e `register_screen.dart`) — ao abrir o app,
@@ -47,12 +60,18 @@ aparece automaticamente — depois disso, todas as chamadas da própria página
 depois disso, libera a navegação principal (`HomeShell`), que tem um botão
 de logout no topo. As credenciais ficam em memória no `ApiService`
 (`setCredentials`/`clearCredentials`) e são reenviadas em toda chamada — não
-há token de sessão persistido (fechar o app desloga).
+há token de sessão persistido (fechar o app desloga). Qualquer 401 numa
+chamada autenticada dispara `ApiService.onUnauthorized`, que força logout e
+mostra "Sessão expirada" na tela de login (ver `AuthProvider.forceLogout`).
+Erros de rede/timeout também são traduzidos em mensagens amigáveis
+(`ApiService._send`), com botão de "Tentar novamente" nas telas principais.
 
 ⚠️ Continua sendo uma autenticação propositalmente simples (sem roles,
-recuperação de senha, ou token persistido) — adequada ao escopo do projeto
-acadêmico, não para produção real. O H2 Console (`/h2-console`) fica
-liberado sem autenticação, por ser ferramenta só de desenvolvimento local.
+recuperação de senha, ou token persistido de verdade — tanto o `localStorage`
+do dashboard quanto a memória do Flutter guardam usuário/senha em texto
+plano no cliente) — adequada ao escopo do projeto acadêmico, não para
+produção real. O H2 Console (`/h2-console`) fica liberado sem autenticação,
+por ser ferramenta só de desenvolvimento local.
 
 ## 0. Dashboard web (servido pelo próprio backend)
 

@@ -44,6 +44,23 @@ class _InsightsScreenState extends State<InsightsScreen> {
             : ListView(
                 padding: const EdgeInsets.all(12),
                 children: [
+                  if (provider.error != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.cloud_off, color: Colors.red, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(provider.error!, style: const TextStyle(fontSize: 12))),
+                          TextButton(onPressed: () => provider.load(), child: const Text('Tentar novamente')),
+                        ],
+                      ),
+                    ),
                   _SectionHeader(
                     title: '🔥 Melhores posts',
                     trailing: PopupMenuButton<int>(

@@ -55,7 +55,7 @@
     justify-content: space-between;
   }
   .panel h2 .actions { display: flex; gap: 8px; }
-  select, input[type=text], button {
+  select, input[type=text], input[type=password], button {
     background: #20242e;
     border: 1px solid var(--border);
     color: var(--text);
@@ -69,8 +69,10 @@
     border: none;
     font-weight: 600;
   }
+  button:disabled { opacity: .6; cursor: default; }
   button.secondary { background: #20242e; border: 1px solid var(--border); }
   button.danger { background: var(--red); }
+  button.link { background: none; border: none; color: var(--accent); font-weight: 500; text-decoration: underline; padding: 4px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
   th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
@@ -92,6 +94,10 @@
   }
   .toggle.on::after { left: 20px; }
   .empty { color: var(--muted); font-size: 13px; padding: 12px 0; }
+  .error-box {
+    color: var(--red); font-size: 13px; padding: 12px; background: rgba(231,76,60,.08);
+    border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
   .posts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 10px; margin-top: 10px; }
   .post-card { background: #20242e; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; font-size: 12px; }
   .post-card .post-body { padding: 10px; }
@@ -101,9 +107,62 @@
   .post-card .stats { display: flex; gap: 10px; color: var(--text); }
   .profile-link { color: var(--accent); cursor: pointer; text-decoration: underline; }
   .badge-rank { display: inline-block; width: 22px; text-align: center; }
+
+  /* ===== Tela de login/registro ===== */
+  #authScreen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .auth-card {
+    width: 100%; max-width: 360px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 28px 24px;
+  }
+  .auth-card h1 { font-size: 20px; margin: 0 0 4px; text-align: center; }
+  .auth-card .sub { color: var(--muted); font-size: 13px; text-align: center; margin-bottom: 24px; }
+  .auth-card label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; margin-top: 14px; }
+  .auth-card input { width: 100%; padding: 10px; font-size: 14px; }
+  .auth-card .submit-btn { width: 100%; padding: 10px; margin-top: 20px; font-size: 14px; }
+  .auth-card .switch-row { text-align: center; margin-top: 16px; font-size: 13px; color: var(--muted); }
+  .auth-error {
+    background: rgba(231,76,60,.1); color: #ff8a80; padding: 10px 12px; border-radius: 6px;
+    font-size: 13px; margin-top: 16px; display: none;
+  }
+  .auth-error.visible { display: block; }
 </style>
 </head>
 <body>
+
+<!-- ===== Tela de Login / Registro ===== -->
+<div id="authScreen">
+  <div class="auth-card">
+    <h1>InstaMVP</h1>
+    <div class="sub">Monitoramento de concorrência no Instagram</div>
+
+    <form id="loginForm">
+      <label for="loginUsername">Usuário</label>
+      <input type="text" id="loginUsername" autocomplete="username" required />
+      <label for="loginPassword">Senha</label>
+      <input type="password" id="loginPassword" autocomplete="current-password" required minlength="4" />
+      <button type="submit" class="submit-btn" id="loginSubmitBtn">Entrar</button>
+      <div class="switch-row">Não tem conta? <button type="button" class="link" id="showRegisterBtn">Criar uma conta</button></div>
+    </form>
+
+    <form id="registerForm" style="display:none;">
+      <label for="registerUsername">Usuário</label>
+      <input type="text" id="registerUsername" autocomplete="username" required />
+      <label for="registerPassword">Senha</label>
+      <input type="password" id="registerPassword" autocomplete="new-password" required minlength="4" />
+      <label for="registerConfirm">Confirmar senha</label>
+      <input type="password" id="registerConfirm" autocomplete="new-password" required minlength="4" />
+      <button type="submit" class="submit-btn" id="registerSubmitBtn">Cadastrar</button>
+      <div class="switch-row">Já tem conta? <button type="button" class="link" id="showLoginBtn">Entrar</button></div>
+    </form>
+
+    <div class="auth-error" id="authError"></div>
+  </div>
+</div>
+
+<!-- ===== App (dashboard) ===== -->
+<div id="appScreen" style="display:none;">
 
 <header>
   <div>
@@ -112,7 +171,9 @@
   </div>
   <div class="row">
     <span class="sub" id="statusText">carregando...</span>
+    <span class="sub" id="whoamiText"></span>
     <button class="secondary" onclick="refreshAll()">⟳ Atualizar</button>
+    <button class="secondary" onclick="logout()">Sair</button>
   </div>
 </header>
 
@@ -185,15 +246,221 @@
 
 </main>
 
+</div>
+
 <script>
 const API = '/api';
+const STORAGE_KEY = 'instamvp_credentials';
+let refreshTimer = null;
 
-async function getJSON(url, options) {
-  const res = await fetch(url, options);
-  if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
+// ===================== Autenticação =====================
+
+function getStoredCredentials() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function storeCredentials(username, password) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ username, password }));
+}
+
+function clearStoredCredentials() {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+function authHeader(username, password) {
+  return 'Basic ' + btoa(`${username}:${password}`);
+}
+
+function showAuthScreen(message) {
+  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+  if (message) showAuthError(message);
+}
+
+function showAppScreen(username) {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  document.getElementById('whoamiText').textContent = `logado como @${username}`;
+  hideAuthError();
+  refreshAll();
+  refreshTimer = setInterval(refreshAll, 30000);
+}
+
+function showAuthError(message) {
+  const el = document.getElementById('authError');
+  el.textContent = message;
+  el.classList.add('visible');
+}
+
+function hideAuthError() {
+  const el = document.getElementById('authError');
+  el.classList.remove('visible');
+  el.textContent = '';
+}
+
+/**
+ * Wrapper central de fetch: anexa o header de autenticação, e traduz falhas
+ * comuns (rede indisponível, 401 por sessão perdida) em mensagens amigáveis
+ * em vez de deixar o erro técnico vazar pra UI.
+ */
+async function apiFetch(url, options = {}) {
+  const creds = getStoredCredentials();
+  const headers = { ...(options.headers || {}) };
+  if (creds) headers['Authorization'] = authHeader(creds.username, creds.password);
+
+  let res;
+  try {
+    res = await fetch(url, { ...options, headers });
+  } catch (networkError) {
+    throw new Error(`Não foi possível conectar ao servidor (${API}). Verifique se o backend está rodando.`);
+  }
+
+  if (res.status === 401) {
+    clearStoredCredentials();
+    showAuthScreen('Sessão expirada. Faça login novamente.');
+    throw new Error('Sessão expirada.');
+  }
+
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const body = await res.json();
+      detail = body.error ? `: ${body.error}` : '';
+    } catch (_) {}
+    throw new Error(`Erro do servidor (HTTP ${res.status})${detail}`);
+  }
+
   if (res.status === 204) return null;
   return res.json();
 }
+
+async function login(username, password) {
+  // Validação direta (não usa apiFetch porque ainda não há credenciais salvas)
+  let res;
+  try {
+    res = await fetch(`${API}/auth/me`, { headers: { Authorization: authHeader(username, password) } });
+  } catch (e) {
+    throw new Error(`Não foi possível conectar ao servidor (${API}). Verifique se o backend está rodando.`);
+  }
+  if (res.status === 401) {
+    throw new Error('Usuário ou senha inválidos.');
+  }
+  if (!res.ok) {
+    throw new Error(`Erro do servidor (HTTP ${res.status}).`);
+  }
+  storeCredentials(username, password);
+  const body = await res.json();
+  showAppScreen(body.username);
+}
+
+async function register(username, password) {
+  let res;
+  try {
+    res = await fetch(`${API}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+  } catch (e) {
+    throw new Error(`Não foi possível conectar ao servidor (${API}). Verifique se o backend está rodando.`);
+  }
+  if (!res.ok) {
+    let message = `Erro ao cadastrar (HTTP ${res.status}).`;
+    try {
+      const body = await res.json();
+      if (body.error) message = body.error;
+    } catch (_) {}
+    throw new Error(message);
+  }
+  await login(username, password);
+}
+
+function logout() {
+  clearStoredCredentials();
+  showAuthScreen();
+}
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideAuthError();
+  const btn = document.getElementById('loginSubmitBtn');
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  btn.disabled = true;
+  btn.textContent = 'Entrando...';
+  try {
+    await login(username, password);
+  } catch (err) {
+    showAuthError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+  }
+});
+
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideAuthError();
+  const btn = document.getElementById('registerSubmitBtn');
+  const username = document.getElementById('registerUsername').value.trim();
+  const password = document.getElementById('registerPassword').value;
+  const confirm = document.getElementById('registerConfirm').value;
+  if (password !== confirm) {
+    showAuthError('As senhas não coincidem.');
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Cadastrando...';
+  try {
+    await register(username, password);
+  } catch (err) {
+    showAuthError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Cadastrar';
+  }
+});
+
+document.getElementById('showRegisterBtn').addEventListener('click', () => {
+  hideAuthError();
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('registerForm').style.display = 'block';
+});
+
+document.getElementById('showLoginBtn').addEventListener('click', () => {
+  hideAuthError();
+  document.getElementById('registerForm').style.display = 'none';
+  document.getElementById('loginForm').style.display = 'block';
+});
+
+async function tryAutoLogin() {
+  const creds = getStoredCredentials();
+  if (!creds) {
+    showAuthScreen();
+    return;
+  }
+  try {
+    const res = await fetch(`${API}/auth/me`, { headers: { Authorization: authHeader(creds.username, creds.password) } });
+    if (!res.ok) {
+      clearStoredCredentials();
+      showAuthScreen();
+      return;
+    }
+    const body = await res.json();
+    showAppScreen(body.username);
+  } catch (e) {
+    // backend indisponível no load inicial — mantém a tela de login com aviso
+    showAuthScreen('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
+  }
+}
+
+// ===================== Formatação =====================
 
 function fmtNumber(n) {
   if (n === null || n === undefined) return '—';
@@ -236,11 +503,21 @@ function postThumb(post) {
   return `<div class="thumb missing">sem imagem</div>`;
 }
 
+/** @param retryCall expressão JS completa de retry, ex: "loadLeaderboard()" ou "openPosts(1, 'nike')" */
+function errorBox(message, retryCall) {
+  return `<div class="error-box">
+    <span>⚠️ ${message}</span>
+    <button class="secondary" onclick="${retryCall}">Tentar novamente</button>
+  </div>`;
+}
+
+// ===================== Seções do dashboard =====================
+
 async function loadLeaderboard() {
   const days = document.getElementById('leaderboardDays').value;
   const container = document.getElementById('leaderboardContainer');
   try {
-    const data = await getJSON(`${API}/leaderboard?days=${days}`);
+    const data = await apiFetch(`${API}/leaderboard?days=${days}`);
     if (!data.length) {
       container.innerHTML = '<div class="empty">Nenhum perfil ainda. Adicione um na watchlist abaixo.</div>';
       return;
@@ -265,14 +542,14 @@ async function loadLeaderboard() {
       <tbody>${rows}</tbody>
     </table>`;
   } catch (e) {
-    container.innerHTML = `<div class="empty">Erro ao carregar leaderboard: ${e.message}</div>`;
+    container.innerHTML = errorBox(e.message, 'loadLeaderboard()');
   }
 }
 
 async function loadWatchlist() {
   const container = document.getElementById('watchlistContainer');
   try {
-    const data = await getJSON(`${API}/scraper/watchlist`);
+    const data = await apiFetch(`${API}/scraper/watchlist`);
     if (!data.length) {
       container.innerHTML = '<div class="empty">Nenhum perfil na watchlist.</div>';
       return;
@@ -290,7 +567,7 @@ async function loadWatchlist() {
       <tbody>${rows}</tbody>
     </table>`;
   } catch (e) {
-    container.innerHTML = `<div class="empty">Erro ao carregar watchlist: ${e.message}</div>`;
+    container.innerHTML = errorBox(e.message, 'loadWatchlist()');
   }
 }
 
@@ -299,7 +576,7 @@ async function addToWatchlist() {
   const username = input.value.trim();
   if (!username) return;
   try {
-    await getJSON(`${API}/scraper/watchlist`, {
+    await apiFetch(`${API}/scraper/watchlist`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username })
@@ -307,26 +584,26 @@ async function addToWatchlist() {
     input.value = '';
     await loadWatchlist();
   } catch (e) {
-    alert('Erro ao adicionar: ' + e.message);
+    alert(e.message);
   }
 }
 
 async function toggleWatch(username) {
   try {
-    await getJSON(`${API}/scraper/watchlist/${encodeURIComponent(username)}/toggle`, { method: 'PATCH' });
+    await apiFetch(`${API}/scraper/watchlist/${encodeURIComponent(username)}/toggle`, { method: 'PATCH' });
     await loadWatchlist();
   } catch (e) {
-    alert('Erro ao alternar: ' + e.message);
+    alert(e.message);
   }
 }
 
 async function removeWatch(username) {
   if (!confirm(`Remover @${username} da watchlist?`)) return;
   try {
-    await fetch(`${API}/scraper/watchlist/${encodeURIComponent(username)}`, { method: 'DELETE' });
+    await apiFetch(`${API}/scraper/watchlist/${encodeURIComponent(username)}`, { method: 'DELETE' });
     await loadWatchlist();
   } catch (e) {
-    alert('Erro ao remover: ' + e.message);
+    alert(e.message);
   }
 }
 
@@ -334,7 +611,7 @@ async function loadTopPosts() {
   const days = document.getElementById('topPostsDays').value;
   const container = document.getElementById('topPostsContainer');
   try {
-    const posts = await getJSON(`${API}/insights/top-posts?days=${days}&limit=12`);
+    const posts = await apiFetch(`${API}/insights/top-posts?days=${days}&limit=12`);
     if (!posts.length) {
       container.innerHTML = '<div class="empty">Nenhum post no período. Aguarde o worker sincronizar mais perfis.</div>';
       return;
@@ -358,7 +635,7 @@ async function loadTopPosts() {
       </div>
     `).join('')}</div>`;
   } catch (e) {
-    container.innerHTML = `<div class="empty">Erro ao carregar melhores posts: ${e.message}</div>`;
+    container.innerHTML = errorBox(e.message, 'loadTopPosts()');
   }
 }
 
@@ -366,7 +643,7 @@ async function loadHashtags() {
   const days = document.getElementById('hashtagsDays').value;
   const container = document.getElementById('hashtagsContainer');
   try {
-    const tags = await getJSON(`${API}/insights/hashtags?days=${days}&limit=20`);
+    const tags = await apiFetch(`${API}/insights/hashtags?days=${days}&limit=20`);
     if (!tags.length) {
       container.innerHTML = '<div class="empty">Nenhuma hashtag encontrada nas legendas do período.</div>';
       return;
@@ -377,7 +654,7 @@ async function loadHashtags() {
       </span>
     `).join('')}</div>`;
   } catch (e) {
-    container.innerHTML = `<div class="empty">Erro ao carregar hashtags: ${e.message}</div>`;
+    container.innerHTML = errorBox(e.message, 'loadHashtags()');
   }
 }
 
@@ -386,7 +663,7 @@ let profilesCache = [];
 async function loadProfiles() {
   const container = document.getElementById('profilesContainer');
   try {
-    profilesCache = await getJSON(`${API}/profiles`);
+    profilesCache = await apiFetch(`${API}/profiles`);
     if (!profilesCache.length) {
       container.innerHTML = '<div class="empty">Nenhum perfil sincronizado ainda.</div>';
       document.getElementById('statusText').textContent = '0 perfis monitorados';
@@ -405,7 +682,7 @@ async function loadProfiles() {
     </table>`;
     document.getElementById('statusText').textContent = `${profilesCache.length} perfil(is) monitorados`;
   } catch (e) {
-    container.innerHTML = `<div class="empty">Erro ao carregar perfis: ${e.message}</div>`;
+    container.innerHTML = errorBox(e.message, 'loadProfiles()');
   }
 }
 
@@ -423,7 +700,7 @@ async function openPosts(profileId, username) {
   panel.scrollIntoView({ behavior: 'smooth' });
   container.innerHTML = '<div class="empty">carregando...</div>';
   try {
-    const posts = await getJSON(`${API}/profiles/${profileId}/posts`);
+    const posts = await apiFetch(`${API}/profiles/${profileId}/posts`);
     if (!posts.length) {
       container.innerHTML = '<div class="empty">Nenhum post sincronizado ainda para este perfil.</div>';
       return;
@@ -443,7 +720,7 @@ async function openPosts(profileId, username) {
       </div>
     `).join('')}</div>`;
   } catch (e) {
-    container.innerHTML = `<div class="empty">Erro ao carregar posts: ${e.message}</div>`;
+    container.innerHTML = errorBox(e.message, `openPosts(${profileId}, '${username}')`);
   }
 }
 
@@ -456,8 +733,7 @@ async function refreshAll() {
   await Promise.all([loadLeaderboard(), loadWatchlist(), loadProfiles(), loadTopPosts(), loadHashtags()]);
 }
 
-refreshAll();
-setInterval(refreshAll, 30000); // auto-refresh a cada 30s, já que o worker roda em background
+tryAutoLogin();
 </script>
 
 </body>

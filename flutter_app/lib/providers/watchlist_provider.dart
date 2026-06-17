@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/scrape_target.dart';
 import '../services/api_service.dart';
+import '../utils/error_utils.dart';
 
 class WatchlistProvider extends ChangeNotifier {
   final ApiService _api = ApiService();
@@ -17,7 +18,7 @@ class WatchlistProvider extends ChangeNotifier {
     try {
       targets = await _api.getWatchlist();
     } catch (e) {
-      error = e.toString();
+      error = friendlyError(e);
     } finally {
       isLoading = false;
       notifyListeners();
@@ -45,7 +46,7 @@ class WatchlistProvider extends ChangeNotifier {
       targets[index] = updated;
     } catch (e) {
       targets[index] = target; // reverte se a chamada falhar
-      error = e.toString();
+      error = friendlyError(e);
     }
     notifyListeners();
   }

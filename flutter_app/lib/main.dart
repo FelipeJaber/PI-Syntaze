@@ -8,6 +8,7 @@ import 'providers/leaderboard_provider.dart';
 import 'providers/insights_provider.dart';
 import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
+import 'services/api_service.dart';
 
 void main() {
   runApp(const InstaMvpApp());
@@ -47,6 +48,12 @@ class AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+
+    // Conecta o hook global de "sessão expirada" do ApiService ao logout do
+    // AuthProvider, uma única vez. Qualquer chamada autenticada que receba
+    // 401 em qualquer tela do app cai aqui automaticamente.
+    ApiService.onUnauthorized = auth.forceLogout;
+
     return auth.isLoggedIn ? const HomeShell() : const LoginScreen();
   }
 }

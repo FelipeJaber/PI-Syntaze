@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/growth.dart';
 import '../services/api_service.dart';
+import '../utils/error_utils.dart';
 
 class LeaderboardProvider extends ChangeNotifier {
   final ApiService _api = ApiService();
@@ -19,7 +20,7 @@ class LeaderboardProvider extends ChangeNotifier {
     try {
       entries = await _api.getLeaderboard(days: this.days);
     } catch (e) {
-      error = e.toString();
+      error = friendlyError(e);
     } finally {
       isLoading = false;
       notifyListeners();

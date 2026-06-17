@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/profile.dart';
 import '../models/post.dart';
 import '../services/api_service.dart';
+import '../utils/error_utils.dart';
 
 class ProfileProvider extends ChangeNotifier {
   final ApiService _api = ApiService();
@@ -18,7 +19,7 @@ class ProfileProvider extends ChangeNotifier {
     try {
       profiles = await _api.getProfiles();
     } catch (e) {
-      error = e.toString();
+      error = friendlyError(e);
     } finally {
       isLoading = false;
       notifyListeners();

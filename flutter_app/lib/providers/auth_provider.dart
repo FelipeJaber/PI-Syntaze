@@ -9,6 +9,11 @@ class AuthProvider extends ChangeNotifier {
   bool isLoading = false;
   String? error;
 
+  /// Mensagem de "sessão expirada" para a LoginScreen exibir uma única vez
+  /// (ex: quando o backend reinicia o banco e as credenciais antigas param
+  /// de valer). Consumida via [consumeSessionMessage].
+  String? sessionMessage;
+
   bool get isLoggedIn => username != null;
 
   Future<bool> login(String username, String password) async {
@@ -47,5 +52,18 @@ class AuthProvider extends ChangeNotifier {
     username = null;
     ApiService.clearCredentials();
     notifyListeners();
+  }
+
+  /// Logout forçado por uma resposta 401 inesperada (sessão perdida) em vez
+  /// de uma ação explícita do usuário — mostra um aviso na tela de login.
+  void forceLogout([String message = 'Sessão expirada. Faça login novamente.']) {
+    sessionMessage = message;
+    logout();
+  }
+
+  String? consumeSessionMessage() {
+    final msg = sessionMessage;
+    sessionMessage = null;
+    return msg;
   }
 }

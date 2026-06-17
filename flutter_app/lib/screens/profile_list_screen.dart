@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/profile_provider.dart';
+import '../utils/error_utils.dart';
 import 'profile_detail_screen.dart';
 
 class ProfileListScreen extends StatefulWidget {
@@ -58,7 +59,7 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro: $e')),
+          SnackBar(content: Text(friendlyError(e))),
         );
       }
     }
@@ -86,7 +87,21 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (provider.error != null && provider.profiles.isEmpty) {
-      return Center(child: Text('Erro: ${provider.error}'));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off, size: 40, color: Colors.grey),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(provider.error!, textAlign: TextAlign.center),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: provider.loadProfiles, child: const Text('Tentar novamente')),
+          ],
+        ),
+      );
     }
     if (provider.profiles.isEmpty) {
       return const Center(child: Text('Nenhum perfil. Use o botão de sincronizar.'));

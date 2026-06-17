@@ -7,6 +7,7 @@ import '../models/post.dart';
 import '../models/growth.dart';
 import '../providers/profile_provider.dart';
 import '../services/api_service.dart';
+import '../utils/error_utils.dart';
 
 class ProfileDetailScreen extends StatelessWidget {
   final Profile profile;
@@ -43,7 +44,19 @@ class ProfileDetailScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Erro ao carregar perfil: ${snapshot.error}'));
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.cloud_off, size: 40, color: Colors.grey),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(friendlyError(snapshot.error!), textAlign: TextAlign.center),
+                  ),
+                ],
+              ),
+            );
           }
 
           final posts = (snapshot.data?[0] as List<Post>?) ?? [];

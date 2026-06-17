@@ -72,7 +72,21 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (provider.error != null && provider.entries.isEmpty) {
-      return Center(child: Text('Erro: ${provider.error}'));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off, size: 40, color: Colors.grey),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(provider.error!, textAlign: TextAlign.center),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: () => provider.load(), child: const Text('Tentar novamente')),
+          ],
+        ),
+      );
     }
     if (provider.entries.isEmpty) {
       return const Center(child: Text('Nenhum perfil monitorado ainda.'));

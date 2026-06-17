@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/scrape_target.dart';
 import '../providers/watchlist_provider.dart';
+import '../utils/error_utils.dart';
 
 class WatchlistScreen extends StatefulWidget {
   const WatchlistScreen({super.key});
@@ -49,7 +50,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
         await context.read<WatchlistProvider>().add(username.trim());
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     }
   }
@@ -73,7 +74,7 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
         await context.read<WatchlistProvider>().remove(target);
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     }
   }
@@ -119,7 +120,21 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (provider.error != null && provider.targets.isEmpty) {
-      return Center(child: Text('Erro: ${provider.error}'));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off, size: 40, color: Colors.grey),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(provider.error!, textAlign: TextAlign.center),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: provider.load, child: const Text('Tentar novamente')),
+          ],
+        ),
+      );
     }
     if (provider.targets.isEmpty) {
       return const Center(child: Text('Nenhum perfil na watchlist. Toque em + para adicionar.'));

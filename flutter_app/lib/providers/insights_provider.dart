@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/top_post.dart';
 import '../models/hashtag.dart';
 import '../services/api_service.dart';
+import '../utils/error_utils.dart';
 
 class InsightsProvider extends ChangeNotifier {
   final ApiService _api = ApiService();
@@ -28,7 +29,7 @@ class InsightsProvider extends ChangeNotifier {
       topPosts = results[0] as List<TopPost>;
       hashtags = results[1] as List<Hashtag>;
     } catch (e) {
-      error = e.toString();
+      error = friendlyError(e);
     } finally {
       isLoading = false;
       notifyListeners();
